@@ -1,8 +1,9 @@
 "use client";
 
 import type { Cart } from "@/lib/types";
-import { formatBaht } from "@/lib/format";
+import { formatBaht, formatCountdown, parseUtc } from "@/lib/format";
 import { useDelayedFlag } from "@/lib/useDelayedFlag";
+import { useNow } from "@/lib/useNow";
 
 type Props = {
   cart: Cart | null;
@@ -18,6 +19,7 @@ type Props = {
 export function CartPanel({ cart, busy, checkingOut, pendingItems, onSetQuantity, onRemove, onClear, onCheckout }: Props) {
   const items = cart?.items ?? [];
   const showCheckingOut = useDelayedFlag(checkingOut);
+  const now = useNow();
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -50,6 +52,7 @@ export function CartPanel({ cart, busy, checkingOut, pendingItems, onSetQuantity
                     <p className="text-xs text-slate-500">
                       {item.productCode} · {formatBaht(item.unitPrice)} / ชิ้น
                     </p>
+                    {now !== null && <ReservationTimer msLeft={parseUtc(item.reservedUntil).getTime() - now} />}
                   </div>
                   <button
                     onClick={() => onRemove(item.productCode)}
@@ -115,5 +118,16 @@ export function CartPanel({ cart, busy, checkingOut, pendingItems, onSetQuantity
         </button>
       </div>
     </section>
+  );
+}
+
+/** เวลาที่เหลือก่อนการจองหมดอายุ (ใกล้หมดเปลี่ยนเป็นสีแดง) */
+function ReservationTimer({ msLeft }: { msLeft: number }) {
+  if (msLeft <= 0) return <p className="mt-0.5 text-xs font-medium text-rose-600">หมดเวลาจอง กำลังคืนสินค้า...</p>;
+  const urgent = msLeft < 60_000;
+  return (
+    <p className={`mt-0.5 text-xs tabular-nums ${urgent ? "font-medium text-rose-600" : "text-amber-700"}`}>
+      จองไว้อีก {formatCountdown(msLeft)} นาที
+    </p>
   );
 }

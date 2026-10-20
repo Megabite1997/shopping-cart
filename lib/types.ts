@@ -16,6 +16,7 @@ export type CartItem = {
   quantity: number;
   lineTotal: number;
   availableToAdd: number;
+  reservedUntil: string; // จองไว้ถึงเมื่อไร (UTC) เลยแล้วระบบคืน stock และเอาออกจากตะกร้า
 };
 
 export type Cart = {

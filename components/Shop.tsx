@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api";
+import { parseUtc } from "@/lib/format";
 import type { Cart, Order, Product } from "@/lib/types";
 import { DEMO_USERS, useCurrentUser } from "@/lib/useCurrentUser";
 import { ProductCard } from "./ProductCard";
@@ -28,16 +29,24 @@ export function Shop() {
   }, []);
 
   // โหลดข้อมูลทั้งหมดของ user ปัจจุบันใหม่ (stock เปลี่ยนได้จาก user อื่น จึงต้องดึงสินค้าใหม่ด้วย)
+  // ดึงตะกร้าก่อน เพราะ backend จะคืน stock ของที่หมดเวลาจองตอนเรียกตะกร้า แล้วค่อยดึงสินค้า จะได้ยอด stock ล่าสุด
   const refresh = useCallback(
     (uid: string) =>
-      Promise.all([api.getProducts(), api.getCart(uid), api.getOrders(uid)]).then(
-        ([p, c, o]) => {
-          setProducts(p);
-          setCart(c);
-          setOrders(o);
-        },
-        showError,
-      ),
+      api
+        .getCart(uid)
+        .then((c) => Promise.all([api.getProducts(), api.getOrders(uid)]).then(([p, o]) => ({ p, c, o })))
+        .then(
+          ({ p, c, o }) => {
+            setProducts(p);
+            setCart(c);
+            setOrders(o);
+            return c;
+          },
+          (err) => {
+            showError(err);
+            return null;
+          },
+        ),
     [showError],
   );
 
@@ -48,6 +57,29 @@ export function Shop() {
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [userId, refresh]);
+
+  // ตั้งเวลาไว้ที่การจองที่จะหมดอายุก่อนสุด พอถึงเวลาโหลดตะกร้าใหม่ (backend จะคืน stock ให้)
+  // แล้วแจ้ง user ว่ารายการไหนหมดเวลาจอง
+  useEffect(() => {
+    if (!userId || !cart || cart.items.length === 0) return;
+    const nextExpiry = Math.min(...cart.items.map((i) => parseUtc(i.reservedUntil).getTime()));
+    const t = setTimeout(
+      async () => {
+        const expiring = cart.items.filter((i) => parseUtc(i.reservedUntil).getTime() <= Date.now());
+        const fresh = await refresh(userId);
+        const gone = expiring.filter((i) => !fresh?.items.some((f) => f.productCode === i.productCode));
+        if (gone.length > 0) {
+          setNotice({
+            kind: "error",
+            text: `หมดเวลาจอง: ${gone.map((i) => i.productName).join(", ")} ระบบคืนสินค้าเข้า stock แล้ว`,
+          });
+        }
+      },
+      // +500ms เผื่อนาฬิกา client กับ server ต่างกันเล็กน้อย ถ้าเลยเวลาแล้ว server ยังไม่คืน ให้รอ 5 วินาทีค่อยลองใหม่
+      nextExpiry > Date.now() ? nextExpiry - Date.now() + 500 : 5000,
+    );
+    return () => clearTimeout(t);
+  }, [userId, cart, refresh]);
 
   useEffect(() => {
     if (!notice) return;
