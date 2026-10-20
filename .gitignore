@@ -1,0 +1,21 @@
+# build output
+bin/
+obj/
+TestResults/
+
+# IDE
+.vs/
+.idea/
+*.user
+
+# local database (เดิมใช้ SQLite)
+*.db
+*.db-shm
+*.db-wal
+
+# env: commit เฉพาะ .env.example
+.env
+.env.*
+!.env.example
+
+.DS_Store
