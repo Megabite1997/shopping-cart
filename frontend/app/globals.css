@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-plex-thai), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* โทนสีส้มแบบธนาคารธนชาต (ค่าสีโดยประมาณจากโลโก้: ส้ม #EC6C00, ดำอมน้ำตาล #231815) */
+@theme {
+  --color-brand: #ec6c00;
+  --color-brand-hover: #c95c00;
+  --color-brand-light: #ff9a3d;
+  --color-brand-soft: #fff1e5;
+  --color-brand-ink: #231815;
+  --color-surface: #f7f4f1;
+}
+
+body {
+  background: var(--color-surface);
+  color: var(--color-brand-ink);
+}
