@@ -2,6 +2,9 @@ import type { Cart, Order, Product } from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5080";
 
+/** หน้าเอกสาร + ทดสอบ API (Scalar) ของ backend เปิดได้เฉพาะตอน backend รันแบบ Development */
+export const API_DOCS_URL = `${BASE_URL}/scalar`;
+
 /** error จาก backend (อ่านจาก ProblemDetails) */
 export class ApiError extends Error {
   constructor(

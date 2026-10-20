@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, ApiError } from "@/lib/api";
+import { api, API_DOCS_URL, ApiError } from "@/lib/api";
 import { parseUtc } from "@/lib/format";
 import type { Cart, Order, Product } from "@/lib/types";
 import { DEMO_USERS, useCurrentUser } from "@/lib/useCurrentUser";
@@ -184,10 +184,26 @@ export function Shop() {
       </header>
 
       <div className="bg-gradient-to-r from-brand-ink to-[#4a2a14] text-white">
-        <div className="mx-auto max-w-6xl px-4 py-6">
-          <p className="text-sm text-brand-light">ช้อปง่าย จ่ายสะดวก</p>
-          <p className="mt-1 text-2xl font-bold">สินค้าพร้อมส่ง เช็ค stock ได้แบบเรียลไทม์</p>
-          <p className="mt-1 text-sm text-white/70">หยิบใส่ตะกร้าแล้วระบบจองสินค้าไว้ให้ ชำระเงินภายในเวลาที่แสดงในตะกร้า</p>
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-6 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm text-brand-light">ช้อปง่าย จ่ายสะดวก</p>
+            <p className="mt-1 text-2xl font-bold">สินค้าพร้อมส่ง เช็ค stock ได้แบบเรียลไทม์</p>
+            <p className="mt-1 text-sm text-white/70">หยิบใส่ตะกร้าแล้วระบบจองสินค้าไว้ให้ ชำระเงินภายในเวลาที่แสดงในตะกร้า</p>
+          </div>
+          <a
+            href={API_DOCS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="เปิดหน้าเอกสาร REST API ของ backend (Scalar) ลองยิง API ได้จากหน้านั้น"
+            className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-xl border border-white/40 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-white hover:bg-white hover:text-brand-ink sm:self-auto"
+          >
+            <svg aria-hidden viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
+              <path d="M7 6 3 10l4 4M13 6l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            ทดสอบ API
+            <span aria-hidden className="opacity-60">↗</span>
+            <span className="sr-only">(เปิดในแท็บใหม่)</span>
+          </a>
         </div>
         <div className="h-1 bg-brand" />
       </div>
