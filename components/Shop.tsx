@@ -3,17 +3,33 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, API_DOCS_URL, ApiError } from "@/lib/api";
 import { parseUtc } from "@/lib/format";
-import type { Cart, Order, Product } from "@/lib/types";
+import type { Cart, Order, PagedResult, Product, ProductQuery } from "@/lib/types";
 import { DEMO_USERS, useCurrentUser } from "@/lib/useCurrentUser";
+import { useDelayedFlag } from "@/lib/useDelayedFlag";
 import { ProductCard } from "./ProductCard";
 import { CartPanel } from "./CartPanel";
 import { OrderHistory } from "./OrderHistory";
+import { Pagination } from "./Pagination";
 
 type Notice = { kind: "success" | "error"; text: string };
 
+const PAGE_SIZE = 12;
+
 export function Shop() {
   const [userId, setUserId] = useCurrentUser();
-  const [products, setProducts] = useState<Product[] | null>(null);
+  const [productPage, setProductPage] = useState<PagedResult<Product> | null>(null);
+  const [page, setPage] = useState(1);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const query = useMemo<ProductQuery>(() => ({ page, pageSize: PAGE_SIZE, search }), [page, search]);
+  // query ของข้อมูลสินค้าที่แสดงอยู่ ถ้าไม่ตรงกับ query ปัจจุบันแปลว่ากำลังโหลดหน้าใหม่
+  const [loadedKey, setLoadedKey] = useState<string>();
+  const queryKey = `${page}|${search}`;
+  const loadingProducts = loadedKey !== queryKey;
+  const showLoadingProducts = useDelayedFlag(loadingProducts && productPage !== null);
+  // หน้าที่กำลังดูอยู่ล่าสุด ให้งานที่ทำเสร็จทีหลัง (เช่นคิวตะกร้า) โหลดสินค้าของหน้าปัจจุบัน ไม่ใช่หน้าตอนที่กด
+  const queryRef = useRef(query);
+  const productsTop = useRef<HTMLElement>(null);
   const [cart, setCart] = useState<Cart | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [lastOrderId, setLastOrderId] = useState<number>();
@@ -34,10 +50,10 @@ export function Shop() {
     (uid: string) =>
       api
         .getCart(uid)
-        .then((c) => Promise.all([api.getProducts(), api.getOrders(uid)]).then(([p, o]) => ({ p, c, o })))
+        .then((c) => Promise.all([api.getProducts(queryRef.current), api.getOrders(uid)]).then(([p, o]) => ({ p, c, o })))
         .then(
           ({ p, c, o }) => {
-            setProducts(p);
+            setProductPage(p);
             setCart(c);
             setOrders(o);
             return c;
@@ -49,6 +65,42 @@ export function Shop() {
         ),
     [showError],
   );
+
+  useEffect(() => {
+    queryRef.current = query;
+  }, [query]);
+
+  // พิมพ์ค้นหาแล้วรอ 300ms ค่อยยิง API (ไม่ยิงทุกตัวอักษร) และกลับไปหน้าแรก
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // เปลี่ยนหน้า / คำค้น -> โหลดสินค้าหน้านั้น (ระหว่างรอยังแสดงหน้าเดิมไว้ ไม่กระพริบเป็นหน้าว่าง)
+  useEffect(() => {
+    let stale = false;
+    const key = `${query.page}|${query.search}`;
+    api.getProducts(query).then(
+      (p) => {
+        if (stale) return;
+        // ค้นหาแล้วจำนวนหน้าลดลง -> ไปหน้าสุดท้ายที่มีอยู่
+        if (p.totalPages > 0 && p.page > p.totalPages) return setPage(p.totalPages);
+        setProductPage(p);
+        setLoadedKey(key);
+      },
+      (err) => {
+        if (stale) return;
+        showError(err);
+        setLoadedKey(key);
+      },
+    );
+    return () => {
+      stale = true;
+    };
+  }, [query, showError]);
 
   useEffect(() => {
     if (!userId) return;
@@ -108,7 +160,7 @@ export function Shop() {
     return enqueue(key, async () => {
       try {
         setCart(await action(uid));
-        setProducts(await api.getProducts());
+        setProductPage(await api.getProducts(queryRef.current));
         if (successText) setNotice({ kind: "success", text: successText });
         return true;
       } catch (err) {
@@ -139,6 +191,15 @@ export function Shop() {
     [pending],
   );
   const cartBusy = pending.has("clear") || pending.has("checkout");
+
+  function goToPage(next: number) {
+    setPage(next);
+    productsTop.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  const products = productPage?.items ?? null;
+  const firstShown = productPage && productPage.totalItems > 0 ? (productPage.page - 1) * productPage.pageSize + 1 : 0;
+  const lastShown = productPage ? firstShown + productPage.items.length - (firstShown > 0 ? 1 : 0) : 0;
 
   const inCart = useMemo(
     () => new Map(cart?.items.map((i) => [i.productCode, i.quantity])),
@@ -220,15 +281,41 @@ export function Shop() {
       )}
 
       <main className="mx-auto grid max-w-6xl gap-6 px-4 py-6 lg:grid-cols-[1fr_360px]">
-        <section>
-          <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
-            <span className="h-5 w-1 rounded-full bg-brand" />
-            สินค้า
-          </h2>
+        <section ref={productsTop} className="scroll-mt-20">
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-semibold">
+                <span className="h-5 w-1 rounded-full bg-brand" />
+                สินค้า
+              </h2>
+              {productPage && (
+                <p className="mt-0.5 text-xs text-stone-500">
+                  {productPage.totalItems === 0
+                    ? "ไม่พบสินค้า"
+                    : `แสดง ${firstShown}–${lastShown} จาก ${productPage.totalItems} รายการ`}
+                </p>
+              )}
+            </div>
+            <input
+              type="search"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="ค้นหาชื่อหรือรหัสสินค้า"
+              aria-label="ค้นหาสินค้า"
+              className="w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30 sm:w-64"
+            />
+          </div>
           {products === null ? (
             <p className="text-sm text-stone-500">กำลังโหลด...</p>
+          ) : products.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-stone-300 bg-white py-12 text-center text-sm text-stone-500">
+              ไม่พบสินค้าที่ตรงกับ &quot;{search}&quot;
+            </p>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div
+              aria-busy={loadingProducts}
+              className={`grid gap-4 transition-opacity sm:grid-cols-2 xl:grid-cols-3 ${showLoadingProducts ? "opacity-60" : ""}`}
+            >
               {products.map((p) => (
                 <ProductCard
                   key={p.code}
@@ -241,6 +328,9 @@ export function Shop() {
                 />
               ))}
             </div>
+          )}
+          {productPage && productPage.totalPages > 1 && (
+            <Pagination page={productPage.page} totalPages={productPage.totalPages} onChange={goToPage} />
           )}
         </section>
 

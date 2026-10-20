@@ -1,4 +1,4 @@
-import type { Cart, Order, Product } from "./types";
+import type { Cart, Order, PagedResult, Product, ProductQuery } from "./types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5080";
 
@@ -38,7 +38,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 const cartPath = (userId: string) => `/api/carts/${encodeURIComponent(userId)}`;
 
 export const api = {
-  getProducts: () => request<Product[]>("/api/products"),
+  getProducts: ({ page, pageSize, search }: ProductQuery) => {
+    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    if (search) params.set("search", search);
+    return request<PagedResult<Product>>(`/api/products?${params}`);
+  },
 
   getCart: (userId: string) => request<Cart>(cartPath(userId)),
 

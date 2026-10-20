@@ -41,3 +41,13 @@ export type Order = {
   totalAmount: number;
   createdAt: string;
 };
+
+export type PagedResult<T> = {
+  items: T[];
+  page: number; // เริ่มที่ 1
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+};
+
+export type ProductQuery = { page: number; pageSize: number; search: string };
