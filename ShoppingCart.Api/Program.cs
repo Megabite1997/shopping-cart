@@ -27,6 +27,8 @@ builder.Services.AddDbContext<AppDbContext>(o =>
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<ICartService, CartService>();
+builder.Services.Configure<CartOptions>(builder.Configuration.GetSection(CartOptions.Section));
+builder.Services.AddHostedService<ExpiredReservationSweeper>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 
 // อนุญาตให้ frontend (Next.js) เรียก API ข้าม origin ได้

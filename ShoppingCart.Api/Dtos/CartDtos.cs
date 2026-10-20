@@ -15,7 +15,10 @@ public record CartItemDto(
     decimal UnitPrice,
     int Quantity,
     decimal LineTotal,
-    int AvailableToAdd); // เพิ่มได้อีกกี่ชิ้น (ให้ frontend ปิดปุ่ม + ได้ถูก)
+    int AvailableToAdd,      // เพิ่มได้อีกกี่ชิ้น (ให้ frontend ปิดปุ่ม + ได้ถูก)
+    DateTime ReservedUntil); // จองไว้ถึงเมื่อไร (UTC) ให้ frontend แสดงเวลานับถอยหลัง
+
+public record ExpiredItemDto(string ProductCode, string ProductName, int Quantity);
 
 public record CartDto(
     string UserId,

@@ -10,5 +10,8 @@ public class CartItem : IHasTimestamps
     public DateTime CreatedAt { get; set; } // เวลาที่หยิบใส่ตะกร้าครั้งแรก
     public DateTime UpdatedAt { get; set; } // เวลาที่แก้จำนวนล่าสุด
 
+    /// <summary>จองไว้ถึงเมื่อไร ต่ออายุทุกครั้งที่หยิบเพิ่ม เลยเวลานี้ระบบจะคืน stock และเอาออกจากตะกร้า</summary>
+    public DateTime ReservedUntil { get; set; }
+
     public Product Product { get; set; } = default!;
 }

@@ -45,6 +45,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, TimeProvider? 
         {
             e.Property(c => c.UserId).HasMaxLength(50).IsRequired();
             e.HasIndex(c => new { c.UserId, c.ProductCode }).IsUnique();
+            e.HasIndex(c => c.ReservedUntil); // ให้ job หาของที่หมดเวลาจองได้เร็ว
             // กันกรณี user เดียวกันแก้จำนวนพร้อมกัน 2 request (optimistic concurrency)
             e.Property(c => c.Quantity).IsConcurrencyToken();
             e.ToTable(t => t.HasCheckConstraint("ck_cart_items_quantity", "quantity > 0"));

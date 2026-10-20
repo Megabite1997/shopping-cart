@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
 using ShoppingCart.Api.Exceptions;
 using ShoppingCart.Api.Services;
@@ -10,7 +11,7 @@ public class CartServiceTests(PostgresFixture postgres) : IDisposable
     private readonly TestDb _testDb = new(postgres);
 
     // สร้าง service ใหม่ทุกครั้ง (DbContext ใหม่) เหมือนแต่ละ HTTP request
-    private CartService Service() => new(_testDb.CreateContext(), _testDb.Clock);
+    private CartService Service() => new(_testDb.CreateContext(), _testDb.Clock, Options.Create(new CartOptions()));
 
     public void Dispose() => _testDb.Dispose();
 

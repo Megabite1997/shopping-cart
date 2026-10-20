@@ -30,5 +30,11 @@ public class InsufficientStockException(string productCode, int requested, int a
     public int Available { get; } = available;
 }
 
+public class ReservationExpiredException(IReadOnlyList<string> productNames)
+    : DomainException(
+        "Reservation Expired",
+        $"หมดเวลาจองสินค้า: {string.Join(", ", productNames)} ระบบคืนสินค้าเข้า stock แล้ว กรุณาตรวจสอบตะกร้าอีกครั้ง",
+        StatusCodes.Status409Conflict);
+
 public class EmptyCartException()
     : DomainException("Empty Cart", "ตะกร้าว่าง ไม่สามารถชำระเงินได้", StatusCodes.Status409Conflict);
