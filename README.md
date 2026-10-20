@@ -127,6 +127,10 @@ WHERE product_code = @code AND quantity - reserved >= @n
 
 ## ตารางในฐานข้อมูล
 
+![ER diagram](docs/er-diagram.png)
+
+ไฟล์ภาพอยู่ที่ [`docs/er-diagram.png`](docs/er-diagram.png) และแบบ vector [`docs/er-diagram.svg`](docs/er-diagram.svg) สร้างจากโครงสร้างจริงใน PostgreSQL
+
 ชื่อตารางและคอลัมน์เป็น snake_case ตามธรรมเนียมของ PostgreSQL (`products`, `stocks`, `cart_items`, `orders`, `order_items`)
 **ทุกตาราง** มี `created_at` และ `updated_at` (`timestamptz`, เก็บเป็น UTC)
 
