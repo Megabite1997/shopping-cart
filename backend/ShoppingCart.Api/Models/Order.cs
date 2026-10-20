@@ -6,6 +6,8 @@ public class Order : IHasTimestamps
     public int Id { get; set; }
     public string UserId { get; set; } = default!;
     public decimal TotalAmount { get; set; }
+    /// <summary>สกุลเงินของทั้งคำสั่งซื้อ ทุกรายการใน order ใช้สกุลเดียวกัน (ไม่ต้องเก็บซ้ำใน order_items)</summary>
+    public string Currency { get; set; } = Currencies.Default;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

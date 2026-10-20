@@ -1,5 +1,5 @@
 import type { Order } from "@/lib/types";
-import { formatBaht, formatDateTime } from "@/lib/format";
+import { formatDateTime, formatMoney } from "@/lib/format";
 
 export function OrderHistory({ orders, highlightId }: { orders: Order[]; highlightId?: number }) {
   if (orders.length === 0) return null;
@@ -31,13 +31,13 @@ export function OrderHistory({ orders, highlightId }: { orders: Order[]; highlig
                   <span>
                     {i.productName} × {i.quantity}
                   </span>
-                  <span>{formatBaht(i.lineTotal)}</span>
+                  <span>{formatMoney(i.lineTotal, order.currency)}</span>
                 </li>
               ))}
             </ul>
             <div className="mt-2 flex justify-between border-t border-stone-100 pt-2 font-semibold">
               <span>รวม</span>
-              <span>{formatBaht(order.totalAmount)}</span>
+              <span>{formatMoney(order.totalAmount, order.currency)}</span>
             </div>
           </li>
         ))}

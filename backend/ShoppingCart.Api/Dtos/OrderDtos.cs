@@ -12,4 +12,5 @@ public record OrderDto(
     string UserId,
     IReadOnlyList<OrderItemDto> Items,
     decimal TotalAmount,
+    string Currency,
     DateTime CreatedAt);

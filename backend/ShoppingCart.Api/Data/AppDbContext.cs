@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using ShoppingCart.Api.Models;
 
 namespace ShoppingCart.Api.Data;
@@ -26,6 +27,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, TimeProvider? 
             e.Property(p => p.Code).HasMaxLength(20);
             e.Property(p => p.Name).HasMaxLength(200).IsRequired();
             e.Property(p => p.UnitPrice).HasPrecision(18, 2);
+            ConfigureCurrency(e.Property(p => p.Currency));
+            e.ToTable(t => t.HasCheckConstraint("ck_products_currency", CurrencyCheck));
             e.HasOne(p => p.Stock).WithOne(s => s.Product).HasForeignKey<Stock>(s => s.ProductCode);
         });
 
@@ -55,6 +58,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, TimeProvider? 
         {
             e.Property(o => o.UserId).HasMaxLength(50).IsRequired();
             e.Property(o => o.TotalAmount).HasPrecision(18, 2);
+            ConfigureCurrency(e.Property(o => o.Currency));
+            e.ToTable(t => t.HasCheckConstraint("ck_orders_currency", CurrencyCheck));
             e.HasIndex(o => o.UserId);
             e.HasMany(o => o.Items).WithOne().HasForeignKey(i => i.OrderId);
         });
@@ -72,6 +77,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, TimeProvider? 
             b.Entity(entity.ClrType).Property(nameof(IHasTimestamps.UpdatedAt)).HasDefaultValueSql("now()");
         }
     }
+
+    // สกุลเงิน: char(3) ตาม ISO 4217, ค่าเริ่มต้น THB และ DB ตรวจรูปแบบให้อีกชั้น
+    private const string CurrencyCheck = "currency ~ '^[A-Z]{3}$'";
+
+    private static void ConfigureCurrency(PropertyBuilder<string> property) =>
+        property.HasMaxLength(3).IsFixedLength().IsRequired().HasDefaultValue(Currencies.Default);
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {

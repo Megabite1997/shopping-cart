@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Options;
 using Microsoft.EntityFrameworkCore;
 using ShoppingCart.Api.Exceptions;
+using ShoppingCart.Api.Models;
 using ShoppingCart.Api.Services;
 
 namespace ShoppingCart.Tests;
@@ -49,6 +50,58 @@ public class CartServiceTests(PostgresFixture postgres) : IDisposable
         var stock = await db.Stocks.AsNoTracking().SingleAsync(s => s.ProductCode == "A001");
         Assert.Equal(t0, stock.CreatedAt);
         Assert.Equal(t1, stock.UpdatedAt);
+    }
+
+    [Fact]
+    public async Task Cart_and_order_carry_the_product_currency()
+    {
+        var cart = await Service().AddItemAsync("alice", "A001", 1);
+        Assert.Equal("THB", cart.Currency);
+        Assert.Equal("THB", cart.Items[0].Currency);
+
+        var order = await Service().CheckoutAsync("alice");
+        Assert.Equal("THB", order.Currency);
+    }
+
+    [Fact]
+    public async Task Empty_cart_uses_default_currency()
+    {
+        Assert.Equal("THB", (await Service().GetCartAsync("alice")).Currency);
+    }
+
+    [Fact]
+    public async Task Adding_product_in_another_currency_is_rejected_and_stock_unchanged()
+    {
+        await Service().AddItemAsync("alice", "A001", 1);
+
+        await Assert.ThrowsAsync<CurrencyMismatchException>(() => Service().AddItemAsync("alice", "U001", 1));
+
+        Assert.Equal(0, _testDb.GetStock("U001").Reserved);
+        Assert.Single((await Service().GetCartAsync("alice")).Items);
+    }
+
+    [Fact]
+    public async Task Cart_in_another_currency_works_on_its_own()
+    {
+        var cart = await Service().AddItemAsync("bob", "U001", 2);
+        Assert.Equal("USD", cart.Currency);
+
+        var order = await Service().CheckoutAsync("bob");
+        Assert.Equal("USD", order.Currency);
+        Assert.Equal(6m, order.TotalAmount);
+    }
+
+    [Fact]
+    public async Task Database_rejects_invalid_currency_code()
+    {
+        using var db = _testDb.CreateContext();
+        db.Products.Add(new Product
+        {
+            Code = "X001", Name = "Bad", UnitPrice = 1m, Currency = "thb",
+            Stock = new Stock { ProductCode = "X001", Quantity = 1 },
+        });
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
     }
 
     [Fact]

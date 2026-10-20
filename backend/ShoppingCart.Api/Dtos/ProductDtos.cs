@@ -4,6 +4,7 @@ public record ProductDto(
     string Code,
     string Name,
     decimal UnitPrice,
+    string Currency,        // ISO 4217 เช่น THB
     int StockQuantity,      // จำนวนคงเหลือใน stock
     int ReservedQuantity,   // ถูกจองอยู่ในตะกร้าของ user ทั้งหมด
     int AvailableQuantity); // ยังหยิบใส่ตะกร้าได้

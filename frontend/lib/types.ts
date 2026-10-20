@@ -4,6 +4,7 @@ export type Product = {
   code: string;
   name: string;
   unitPrice: number;
+  currency: string; // ISO 4217 เช่น THB
   stockQuantity: number; // คงเหลือใน stock
   reservedQuantity: number; // ถูกจองในตะกร้าของ user ทั้งหมด
   availableQuantity: number; // ยังหยิบใส่ตะกร้าได้
@@ -13,6 +14,7 @@ export type CartItem = {
   productCode: string;
   productName: string;
   unitPrice: number;
+  currency: string;
   quantity: number;
   lineTotal: number;
   availableToAdd: number;
@@ -24,6 +26,7 @@ export type Cart = {
   items: CartItem[];
   totalQuantity: number;
   totalAmount: number;
+  currency: string;
 };
 
 export type OrderItem = {
@@ -39,6 +42,7 @@ export type Order = {
   userId: string;
   items: OrderItem[];
   totalAmount: number;
+  currency: string;
   createdAt: string;
 };
 

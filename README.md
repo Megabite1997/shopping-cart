@@ -57,7 +57,7 @@ npm install
 npm run dev
 ```
 
-**4. รันเทส backend** (xUnit 50 เทส: unit test ของ CartService + integration test ผ่าน HTTP)
+**4. รันเทส backend** (xUnit 55 เทส: unit test ของ CartService + integration test ผ่าน HTTP)
 
 เทสใช้ [Testcontainers](https://dotnet.testcontainers.org/) เปิด PostgreSQL container แยกให้เองอัตโนมัติ
 (ไม่ยุ่งกับ database ที่ใช้รันจริง) จึงต้องเปิด Docker ไว้ตอนรันเทส
@@ -130,6 +130,17 @@ WHERE product_code = @code AND quantity - reserved >= @n
 ชื่อตารางและคอลัมน์เป็น snake_case ตามธรรมเนียมของ PostgreSQL (`products`, `stocks`, `cart_items`, `orders`, `order_items`)
 **ทุกตาราง** มี `created_at` และ `updated_at` (`timestamptz`, เก็บเป็น UTC)
 
+- `products.currency` และ `orders.currency`: สกุลเงินแบบ ISO 4217 (`char(3)` ค่าเริ่มต้น `THB`) มี CHECK ให้เป็นตัวพิมพ์ใหญ่ 3 ตัว
+  `order_items` ไม่เก็บซ้ำเพราะใช้สกุลเงินเดียวกับ order และตะกร้าหนึ่งใบใส่สินค้าต่างสกุลเงินกันไม่ได้ (ตอบ `409 Currency Mismatch`)
+
+  ถ้ามี database เดิมที่สร้างก่อนมีคอลัมน์นี้ (`EnsureCreated` ไม่แก้ตารางที่มีอยู่แล้ว) เพิ่มเองได้โดยไม่เสียข้อมูล:
+
+  ```sql
+  ALTER TABLE products ADD COLUMN currency character(3) NOT NULL DEFAULT 'THB';
+  ALTER TABLE products ADD CONSTRAINT ck_products_currency CHECK (currency ~ '^[A-Z]{3}$');
+  ALTER TABLE orders ADD COLUMN currency character(3) NOT NULL DEFAULT 'THB';
+  ALTER TABLE orders ADD CONSTRAINT ck_orders_currency CHECK (currency ~ '^[A-Z]{3}$');
+  ```
 - `created_at`: ตั้งค่าครั้งเดียวตอนสร้างแถว ห้ามแก้ภายหลัง
 - `updated_at`: เปลี่ยนทุกครั้งที่แถวถูกแก้ไข เช่น `stocks.updated_at` เปลี่ยนทุกครั้งที่มีการจอง คืน หรือตัด stock
 - ตั้งค่าอัตโนมัติใน `AppDbContext.SaveChanges` ส่วนคำสั่ง `ExecuteUpdate` (ที่ไม่ผ่าน SaveChanges) จะตั้ง `updated_at` เองใน `CartService`

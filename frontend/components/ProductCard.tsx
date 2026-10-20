@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { Product } from "@/lib/types";
-import { formatBaht } from "@/lib/format";
+import { formatMoney } from "@/lib/format";
 import { useDelayedFlag } from "@/lib/useDelayedFlag";
 
 type Props = {
@@ -35,7 +35,7 @@ export function ProductCard({ product, inCart, pending, onAdd }: Props) {
       </div>
 
       <h3 className="mt-3 text-base font-semibold text-stone-900">{product.name}</h3>
-      <p className="mt-1 text-lg font-bold text-brand">{formatBaht(product.unitPrice)}</p>
+      <p className="mt-1 text-lg font-bold text-brand">{formatMoney(product.unitPrice, product.currency)}</p>
 
       <dl className="mt-3 grid grid-cols-3 gap-1 rounded-xl bg-surface p-2 text-center text-xs">
         <div>

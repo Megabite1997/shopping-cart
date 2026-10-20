@@ -51,6 +51,7 @@ public class ApiTests : IDisposable
         Assert.Equal("P001", p001.Code);
         Assert.Equal(25, p001.StockQuantity);
         Assert.Equal(25, p001.AvailableQuantity);
+        Assert.Equal("THB", p001.Currency);
     }
 
     [Theory]

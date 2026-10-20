@@ -21,7 +21,8 @@ public sealed class TestDb : IDisposable
         db.Products.AddRange(
             NewProduct("A001", "Apple", 10m, 5),
             NewProduct("B001", "Banana", 2.5m, 2),
-            NewProduct("Z001", "Out of stock", 99m, 0));
+            NewProduct("Z001", "Out of stock", 99m, 0),
+            NewProduct("U001", "Imported (USD)", 3m, 5, "USD"));
         db.SaveChanges();
     }
 
@@ -34,11 +35,12 @@ public sealed class TestDb : IDisposable
         return db.Stocks.AsNoTracking().Single(s => s.ProductCode == code);
     }
 
-    private static Product NewProduct(string code, string name, decimal price, int qty) => new()
+    private static Product NewProduct(string code, string name, decimal price, int qty, string currency = "THB") => new()
     {
         Code = code,
         Name = name,
         UnitPrice = price,
+        Currency = currency,
         Stock = new Stock { ProductCode = code, Quantity = qty },
     };
 

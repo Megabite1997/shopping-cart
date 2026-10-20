@@ -13,6 +13,7 @@ public record CartItemDto(
     string ProductCode,
     string ProductName,
     decimal UnitPrice,
+    string Currency,
     int Quantity,
     decimal LineTotal,
     int AvailableToAdd,      // เพิ่มได้อีกกี่ชิ้น (ให้ frontend ปิดปุ่ม + ได้ถูก)
@@ -24,4 +25,5 @@ public record CartDto(
     string UserId,
     IReadOnlyList<CartItemDto> Items,
     int TotalQuantity,
-    decimal TotalAmount);
+    decimal TotalAmount,
+    string Currency); // สกุลเงินของตะกร้า (ตะกร้าว่างใช้ค่าเริ่มต้น THB)

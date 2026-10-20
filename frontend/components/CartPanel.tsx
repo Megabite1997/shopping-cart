@@ -1,7 +1,7 @@
 "use client";
 
 import type { Cart } from "@/lib/types";
-import { formatBaht, formatCountdown, parseUtc } from "@/lib/format";
+import { formatCountdown, formatMoney, parseUtc } from "@/lib/format";
 import { useDelayedFlag } from "@/lib/useDelayedFlag";
 import { useNow } from "@/lib/useNow";
 
@@ -62,7 +62,7 @@ export function CartPanel({
                   <div>
                     <p className="text-sm font-medium text-stone-900">{item.productName}</p>
                     <p className="text-xs text-stone-500">
-                      {item.productCode} · {formatBaht(item.unitPrice)} / ชิ้น
+                      {item.productCode} · {formatMoney(item.unitPrice, item.currency)} / ชิ้น
                     </p>
                     {now !== null && <ReservationTimer msLeft={parseUtc(item.reservedUntil).getTime() - now} />}
                   </div>
@@ -98,7 +98,7 @@ export function CartPanel({
                       +
                     </button>
                   </div>
-                  <span className="text-sm font-semibold text-stone-900">{formatBaht(item.lineTotal)}</span>
+                  <span className="text-sm font-semibold text-stone-900">{formatMoney(item.lineTotal, item.currency)}</span>
                 </div>
               </li>
             );
@@ -113,7 +113,7 @@ export function CartPanel({
         </div>
         <div className="mt-1 flex justify-between text-base font-bold text-stone-900">
           <span>ยอดรวม</span>
-          <span>{formatBaht(cart?.totalAmount ?? 0)}</span>
+          <span>{formatMoney(cart?.totalAmount ?? 0, cart?.currency ?? "THB")}</span>
         </div>
         <button
           onClick={onCheckout}

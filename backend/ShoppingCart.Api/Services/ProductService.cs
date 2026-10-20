@@ -35,7 +35,7 @@ public class ProductService(AppDbContext db) : IProductService
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(p => new ProductDto(
-                p.Code, p.Name, p.UnitPrice,
+                p.Code, p.Name, p.UnitPrice, p.Currency,
                 p.Stock.Quantity, p.Stock.Reserved, p.Stock.Quantity - p.Stock.Reserved))
             .ToListAsync(ct);
 
@@ -48,7 +48,7 @@ public class ProductService(AppDbContext db) : IProductService
             .AsNoTracking()
             .Where(p => p.Code == code)
             .Select(p => new ProductDto(
-                p.Code, p.Name, p.UnitPrice,
+                p.Code, p.Name, p.UnitPrice, p.Currency,
                 p.Stock.Quantity, p.Stock.Reserved, p.Stock.Quantity - p.Stock.Reserved))
             .FirstOrDefaultAsync(ct)
         ?? throw new NotFoundException($"ไม่พบสินค้ารหัส {code}");

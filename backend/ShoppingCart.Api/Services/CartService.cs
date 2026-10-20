@@ -54,8 +54,14 @@ public partial class CartService(AppDbContext db, TimeProvider clock, IOptions<C
     {
         ValidateUserId(userId);
         if (quantity <= 0) throw new BadRequestException("จำนวนต้องมากกว่า 0");
-        await EnsureProductExistsAsync(productCode, ct);
+        var productCurrency = await db.Products.Where(p => p.Code == productCode).Select(p => p.Currency).FirstOrDefaultAsync(ct)
+            ?? throw new NotFoundException($"ไม่พบสินค้ารหัส {productCode}");
         await ReleaseExpiredAsync(userId, ct);
+
+        // ยอดรวมของตะกร้าต้องเป็นสกุลเงินเดียว จึงห้ามผสมสินค้าต่างสกุลเงิน
+        var cartCurrency = await db.CartItems.Where(c => c.UserId == userId).Select(c => c.Product.Currency).FirstOrDefaultAsync(ct);
+        if (cartCurrency is not null && cartCurrency != productCurrency)
+            throw new CurrencyMismatchException(productCode, productCurrency, cartCurrency);
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
 
@@ -171,7 +177,12 @@ public partial class CartService(AppDbContext db, TimeProvider clock, IOptions<C
             .ToListAsync(ct);
         if (items.Count == 0) throw new EmptyCartException();
 
-        var order = new Order { UserId = userId };
+        // AddItem กันไม่ให้ผสมสกุลเงินไว้แล้ว ตรงนี้ตรวจซ้ำอีกชั้นก่อนตัดเงินจริง
+        var currencies = items.Select(i => i.Product.Currency).Distinct().ToList();
+        if (currencies.Count > 1)
+            throw new InvalidOperationException($"ตะกร้าของ {userId} มีหลายสกุลเงิน: {string.Join(", ", currencies)}");
+
+        var order = new Order { UserId = userId, Currency = currencies[0] };
         var now = Now;
 
         foreach (var item in items)
@@ -270,12 +281,6 @@ public partial class CartService(AppDbContext db, TimeProvider clock, IOptions<C
             throw new InvalidOperationException($"ยอดจองของ {productCode} น้อยกว่าที่จะคืน");
     }
 
-    private async Task EnsureProductExistsAsync(string productCode, CancellationToken ct)
-    {
-        if (!await db.Products.AnyAsync(p => p.Code == productCode, ct))
-            throw new NotFoundException($"ไม่พบสินค้ารหัส {productCode}");
-    }
-
     private async Task<CartItem> FindItemAsync(string userId, string productCode, CancellationToken ct) =>
         await db.CartItems.FirstOrDefaultAsync(c => c.UserId == userId && c.ProductCode == productCode, ct)
         ?? throw new NotFoundException($"ไม่พบสินค้า {productCode} ในตะกร้า");
@@ -291,6 +296,7 @@ public partial class CartService(AppDbContext db, TimeProvider clock, IOptions<C
                 c.ProductCode,
                 c.Product.Name,
                 c.Product.UnitPrice,
+                c.Product.Currency,
                 c.Quantity,
                 c.ReservedUntil,
                 Available = c.Product.Stock.Quantity - c.Product.Stock.Reserved,
@@ -300,10 +306,11 @@ public partial class CartService(AppDbContext db, TimeProvider clock, IOptions<C
         // รวมยอดเงินจากข้อมูลที่ดึงมาแล้ว ไม่ต้อง query DB ซ้ำ
         var items = rows
             .Select(r => new CartItemDto(
-                r.ProductCode, r.Name, r.UnitPrice, r.Quantity, r.UnitPrice * r.Quantity, r.Available, r.ReservedUntil))
+                r.ProductCode, r.Name, r.UnitPrice, r.Currency, r.Quantity, r.UnitPrice * r.Quantity, r.Available, r.ReservedUntil))
             .ToList();
 
-        return new CartDto(userId, items, items.Sum(i => i.Quantity), items.Sum(i => i.LineTotal));
+        var currency = items.FirstOrDefault()?.Currency ?? Currencies.Default;
+        return new CartDto(userId, items, items.Sum(i => i.Quantity), items.Sum(i => i.LineTotal), currency);
     }
 
     internal static void ValidateUserId(string userId)

@@ -34,5 +34,6 @@ internal static class OrderMapper
         o.UserId,
         o.Items.Select(i => new OrderItemDto(i.ProductCode, i.ProductName, i.UnitPrice, i.Quantity, i.LineTotal)).ToList(),
         o.TotalAmount,
+        o.Currency,
         o.CreatedAt);
 }

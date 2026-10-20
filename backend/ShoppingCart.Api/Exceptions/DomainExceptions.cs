@@ -36,5 +36,11 @@ public class ReservationExpiredException(IReadOnlyList<string> productNames)
         $"หมดเวลาจองสินค้า: {string.Join(", ", productNames)} ระบบคืนสินค้าเข้า stock แล้ว กรุณาตรวจสอบตะกร้าอีกครั้ง",
         StatusCodes.Status409Conflict);
 
+public class CurrencyMismatchException(string productCode, string productCurrency, string cartCurrency)
+    : DomainException(
+        "Currency Mismatch",
+        $"สินค้า {productCode} ราคาเป็น {productCurrency} แต่ตะกร้าเป็น {cartCurrency} ใส่สินค้าต่างสกุลเงินในตะกร้าเดียวกันไม่ได้",
+        StatusCodes.Status409Conflict);
+
 public class EmptyCartException()
     : DomainException("Empty Cart", "ตะกร้าว่าง ไม่สามารถชำระเงินได้", StatusCodes.Status409Conflict);
