@@ -37,15 +37,66 @@ public class ApiTests : IDisposable
     }
 
     [Fact]
-    public async Task Get_products_returns_seeded_products_with_stock()
+    public async Task Get_products_returns_first_page_with_stock()
     {
-        var products = await _client.GetFromJsonAsync<List<ProductDto>>("/api/products");
+        var page = await _client.GetFromJsonAsync<PagedResult<ProductDto>>("/api/products");
 
-        Assert.NotNull(products);
-        Assert.Equal(8, products.Count);
-        var p001 = products.Single(p => p.Code == "P001");
+        Assert.NotNull(page);
+        Assert.Equal(1, page.Page);
+        Assert.Equal(12, page.PageSize);
+        Assert.Equal(108, page.TotalItems);
+        Assert.Equal(9, page.TotalPages);
+        Assert.Equal(12, page.Items.Count);
+        var p001 = page.Items[0];
+        Assert.Equal("P001", p001.Code);
         Assert.Equal(25, p001.StockQuantity);
         Assert.Equal(25, p001.AvailableQuantity);
+    }
+
+    [Theory]
+    [InlineData(9, 12, 12, "P097", "P108")] // หน้าสุดท้ายพอดี
+    [InlineData(3, 50, 8, "P101", "P108")]  // หน้าสุดท้ายไม่เต็ม
+    [InlineData(2, 5, 5, "P006", "P010")]
+    public async Task Get_products_pages_are_ordered_by_code(int page, int size, int count, string first, string last)
+    {
+        var result = await _client.GetFromJsonAsync<PagedResult<ProductDto>>($"/api/products?page={page}&pageSize={size}");
+
+        Assert.Equal(count, result!.Items.Count);
+        Assert.Equal(first, result.Items[0].Code);
+        Assert.Equal(last, result.Items[^1].Code);
+    }
+
+    [Fact]
+    public async Task Get_products_page_past_the_end_is_empty()
+    {
+        var result = await _client.GetFromJsonAsync<PagedResult<ProductDto>>("/api/products?page=99");
+
+        Assert.Empty(result!.Items);
+        Assert.Equal(108, result.TotalItems);
+    }
+
+    [Theory]
+    [InlineData("แพ็กคู่", 50)]
+    [InlineData("hdmi", 4)] // ไม่สนตัวพิมพ์เล็ก/ใหญ่
+    [InlineData("p00", 9)]  // ค้นจากรหัสได้ (P001-P009)
+    [InlineData("ไม่มีสินค้านี้", 0)]
+    public async Task Get_products_search_by_name_or_code(string search, int expected)
+    {
+        var result = await _client.GetFromJsonAsync<PagedResult<ProductDto>>(
+            $"/api/products?pageSize=100&search={Uri.EscapeDataString(search)}");
+
+        Assert.Equal(expected, result!.TotalItems);
+        Assert.Equal(expected == 0 ? 0 : 1, result.TotalPages);
+    }
+
+    [Theory]
+    [InlineData("page=0")]
+    [InlineData("pageSize=0")]
+    [InlineData("pageSize=101")]
+    public async Task Get_products_invalid_paging_returns_400(string query)
+    {
+        var res = await _client.GetAsync($"/api/products?{query}");
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
     }
 
     [Fact]
