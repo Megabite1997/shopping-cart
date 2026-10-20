@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, API_DOCS_URL, ApiError } from "@/lib/api";
 import { parseUtc } from "@/lib/format";
 import type { Cart, Order, PagedResult, Product, ProductQuery } from "@/lib/types";
-import { DEMO_USERS, useCurrentUser } from "@/lib/useCurrentUser";
+import { DEMO_USERS, isDemoUser, type DemoUser } from "@/lib/users";
 import { useDelayedFlag } from "@/lib/useDelayedFlag";
 import { ProductCard } from "./ProductCard";
 import { CartPanel } from "./CartPanel";
@@ -16,7 +16,8 @@ type Notice = { kind: "success" | "error"; text: string };
 const PAGE_SIZE = 12;
 
 export function Shop() {
-  const [userId, setUserId] = useCurrentUser();
+  // user ปัจจุบันมาจาก cookie ฝั่ง server (null = ยังโหลดไม่เสร็จ)
+  const [userId, setUserId] = useState<DemoUser | null>(null);
   const [productPage, setProductPage] = useState<PagedResult<Product> | null>(null);
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
@@ -47,10 +48,10 @@ export function Shop() {
   // โหลดข้อมูลทั้งหมดของ user ปัจจุบันใหม่ (stock เปลี่ยนได้จาก user อื่น จึงต้องดึงสินค้าใหม่ด้วย)
   // ดึงตะกร้าก่อน เพราะ backend จะคืน stock ของที่หมดเวลาจองตอนเรียกตะกร้า แล้วค่อยดึงสินค้า จะได้ยอด stock ล่าสุด
   const refresh = useCallback(
-    (uid: string) =>
+    () =>
       api
-        .getCart(uid)
-        .then((c) => Promise.all([api.getProducts(queryRef.current), api.getOrders(uid)]).then(([p, o]) => ({ p, c, o })))
+        .getCart()
+        .then((c) => Promise.all([api.getProducts(queryRef.current), api.getOrders()]).then(([p, o]) => ({ p, c, o })))
         .then(
           ({ p, c, o }) => {
             setProductPage(p);
@@ -103,9 +104,13 @@ export function Shop() {
   }, [query, showError]);
 
   useEffect(() => {
+    api.getSession().then((s) => setUserId(s.userId), showError);
+  }, [showError]);
+
+  useEffect(() => {
     if (!userId) return;
-    void refresh(userId);
-    const onFocus = () => void refresh(userId);
+    void refresh();
+    const onFocus = () => void refresh();
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, [userId, refresh]);
@@ -118,7 +123,7 @@ export function Shop() {
     const t = setTimeout(
       async () => {
         const expiring = cart.items.filter((i) => parseUtc(i.reservedUntil).getTime() <= Date.now());
-        const fresh = await refresh(userId);
+        const fresh = await refresh();
         const gone = expiring.filter((i) => !fresh?.items.some((f) => f.productCode === i.productCode));
         if (gone.length > 0) {
           setNotice({
@@ -154,18 +159,17 @@ export function Shop() {
   }
 
   /** เรียก API ที่แก้ตะกร้า แล้วอัปเดตตะกร้า + stock ให้ตรงกับ backend */
-  function mutate(key: string, action: (uid: string) => Promise<Cart>, successText?: string): Promise<boolean> {
+  function mutate(key: string, action: () => Promise<Cart>, successText?: string): Promise<boolean> {
     if (!userId) return Promise.resolve(false);
-    const uid = userId;
     return enqueue(key, async () => {
       try {
-        setCart(await action(uid));
+        setCart(await action());
         setProductPage(await api.getProducts(queryRef.current));
         if (successText) setNotice({ kind: "success", text: successText });
         return true;
       } catch (err) {
         showError(err);
-        await refresh(uid);
+        await refresh();
         return false;
       }
     });
@@ -173,16 +177,28 @@ export function Shop() {
 
   function checkout() {
     if (!userId) return;
-    const uid = userId;
     void enqueue("checkout", async () => {
       try {
-        const order = await api.checkout(uid);
+        const order = await api.checkout();
         setLastOrderId(order.orderId);
         setNotice({ kind: "success", text: `ชำระเงินสำเร็จ คำสั่งซื้อ #${order.orderId}` });
       } catch (err) {
         showError(err);
       }
-      await refresh(uid);
+      await refresh();
+    });
+  }
+
+  /** เปลี่ยน user: ต่อคิวหลังงานตะกร้าที่ค้างอยู่ งานเก่าจะได้ไม่ไปทำกับตะกร้าของ user ใหม่ */
+  function switchUser(next: DemoUser) {
+    setLastOrderId(undefined);
+    void enqueue("session", async () => {
+      try {
+        const s = await api.setUser(next);
+        setUserId(s.userId);
+      } catch (err) {
+        showError(err);
+      }
     });
   }
 
@@ -224,10 +240,7 @@ export function Shop() {
               ผู้ใช้
               <select
                 value={userId ?? ""}
-                onChange={(e) => {
-                  setLastOrderId(undefined);
-                  setUserId(e.target.value);
-                }}
+                onChange={(e) => isDemoUser(e.target.value) && switchUser(e.target.value)}
                 className="rounded-lg border border-white/40 bg-white/15 px-2 py-1 text-white focus:outline-none focus:ring-2 focus:ring-white/70 [&>option]:text-brand-ink"
               >
                 {DEMO_USERS.map((u) => (
@@ -323,7 +336,7 @@ export function Shop() {
                   inCart={inCart.get(p.code) ?? 0}
                   pending={pending.has(`add:${p.code}`)}
                   onAdd={(code, qty) =>
-                    mutate(`add:${code}`, (uid) => api.addToCart(uid, code, qty), `เพิ่ม ${p.name} × ${qty} ลงตะกร้าแล้ว`)
+                    mutate(`add:${code}`, () => api.addToCart(code, qty), `เพิ่ม ${p.name} × ${qty} ลงตะกร้าแล้ว`)
                   }
                 />
               ))}
@@ -340,9 +353,9 @@ export function Shop() {
             busy={cartBusy}
             checkingOut={pending.has("checkout")}
             pendingItems={pendingItems}
-            onSetQuantity={(code, qty) => mutate(`item:${code}`, (uid) => api.setQuantity(uid, code, qty))}
-            onRemove={(code) => mutate(`item:${code}`, (uid) => api.removeItem(uid, code))}
-            onClear={() => mutate("clear", (uid) => api.clearCart(uid), "ล้างตะกร้าแล้ว")}
+            onSetQuantity={(code, qty) => mutate(`item:${code}`, () => api.setQuantity(code, qty))}
+            onRemove={(code) => mutate(`item:${code}`, () => api.removeItem(code))}
+            onClear={() => mutate("clear", () => api.clearCart(), "ล้างตะกร้าแล้ว")}
             onCheckout={checkout}
           />
           <OrderHistory orders={orders} highlightId={lastOrderId} />
