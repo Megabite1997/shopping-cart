@@ -4,12 +4,13 @@ using ShoppingCart.Api.Services;
 
 namespace ShoppingCart.Tests;
 
-public class CartServiceTests : IDisposable
+[Collection(PostgresCollection.Name)]
+public class CartServiceTests(PostgresFixture postgres) : IDisposable
 {
-    private readonly TestDb _testDb = new();
+    private readonly TestDb _testDb = new(postgres);
 
     // สร้าง service ใหม่ทุกครั้ง (DbContext ใหม่) เหมือนแต่ละ HTTP request
-    private CartService Service() => new(_testDb.CreateContext(), TimeProvider.System);
+    private CartService Service() => new(_testDb.CreateContext(), _testDb.Clock);
 
     public void Dispose() => _testDb.Dispose();
 
@@ -26,6 +27,27 @@ public class CartServiceTests : IDisposable
         var stock = _testDb.GetStock("A001");
         Assert.Equal(5, stock.Quantity); // ยังไม่ตัดจริงจนกว่าจะ checkout
         Assert.Equal(2, stock.Reserved);
+    }
+
+    [Fact]
+    public async Task Timestamps_created_at_kept_and_updated_at_moves_on_change()
+    {
+        var t0 = _testDb.Clock.GetUtcNow().UtcDateTime;
+        await Service().AddItemAsync("alice", "A001", 1);
+
+        _testDb.Clock.Advance(TimeSpan.FromMinutes(5));
+        var t1 = _testDb.Clock.GetUtcNow().UtcDateTime;
+        await Service().UpdateItemQuantityAsync("alice", "A001", 3);
+
+        using var db = _testDb.CreateContext();
+        var item = await db.CartItems.AsNoTracking().SingleAsync(c => c.UserId == "alice");
+        Assert.Equal(t0, item.CreatedAt);
+        Assert.Equal(t1, item.UpdatedAt);
+
+        // stock ถูกแก้ผ่าน ExecuteUpdate (ไม่ผ่าน SaveChanges) ก็ต้องอัปเดต updated_at ด้วย
+        var stock = await db.Stocks.AsNoTracking().SingleAsync(s => s.ProductCode == "A001");
+        Assert.Equal(t0, stock.CreatedAt);
+        Assert.Equal(t1, stock.UpdatedAt);
     }
 
     [Fact]
@@ -61,6 +83,31 @@ public class CartServiceTests : IDisposable
         await Service().AddItemAsync("alice", "B001", 2);
 
         await Assert.ThrowsAsync<InsufficientStockException>(() => Service().AddItemAsync("bob", "B001", 1));
+    }
+
+    [Fact]
+    public async Task Concurrent_users_cannot_oversell_last_items()
+    {
+        // 10 คนกดซื้อ Banana (เหลือ 2 ชิ้น) พร้อมกัน ต้องสำเร็จแค่ 2 คน
+        var attempts = Enumerable.Range(1, 10).Select(async i =>
+        {
+            try
+            {
+                await Service().AddItemAsync($"user{i}", "B001", 1);
+                return true;
+            }
+            catch (InsufficientStockException)
+            {
+                return false;
+            }
+        });
+
+        var results = await Task.WhenAll(attempts);
+
+        Assert.Equal(2, results.Count(ok => ok));
+        var stock = _testDb.GetStock("B001");
+        Assert.Equal(2, stock.Quantity);
+        Assert.Equal(2, stock.Reserved);
     }
 
     [Fact]

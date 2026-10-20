@@ -1,30 +1,39 @@
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
+using ShoppingCart.Api.Data;
 using ShoppingCart.Api.Dtos;
 
 namespace ShoppingCart.Tests;
 
 /// <summary>ทดสอบผ่าน HTTP จริง: routing, status code, ProblemDetails</summary>
+[Collection(PostgresCollection.Name)]
 public class ApiTests : IDisposable
 {
-    private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"shoppingcart-test-{Guid.NewGuid():N}.db");
     private readonly WebApplicationFactory<Program> _factory;
     private readonly HttpClient _client;
 
-    public ApiTests()
+    public ApiTests(PostgresFixture postgres)
     {
+        var connectionString = postgres.NewDatabaseConnectionString();
         _factory = new WebApplicationFactory<Program>()
-            .WithWebHostBuilder(b => b.UseSetting("ConnectionStrings:Default", $"Data Source={_dbPath};Pooling=False"));
-        _client = _factory.CreateClient();
+            .WithWebHostBuilder(b => b
+                .UseEnvironment("Testing") // ไม่โหลด backend/.env
+                .UseSetting("ConnectionStrings:Default", connectionString));
+        _client = _factory.CreateClient(); // ตอน start, Program.cs สร้าง DB + seed ให้เอง
     }
 
     public void Dispose()
     {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.EnsureDeleted();
+        }
         _client.Dispose();
         _factory.Dispose();
-        File.Delete(_dbPath);
     }
 
     [Fact]

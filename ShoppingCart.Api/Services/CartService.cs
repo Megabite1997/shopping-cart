@@ -56,7 +56,6 @@ public partial class CartService(AppDbContext db, TimeProvider clock) : ICartSer
                 UserId = userId,
                 ProductCode = productCode,
                 Quantity = quantity,
-                AddedAt = clock.GetUtcNow().UtcDateTime,
             });
         }
         else
@@ -139,7 +138,8 @@ public partial class CartService(AppDbContext db, TimeProvider clock) : ICartSer
             .ToListAsync(ct);
         if (items.Count == 0) throw new EmptyCartException();
 
-        var order = new Order { UserId = userId, CreatedAt = clock.GetUtcNow().UtcDateTime };
+        var order = new Order { UserId = userId };
+        var now = clock.GetUtcNow().UtcDateTime;
 
         foreach (var item in items)
         {
@@ -148,7 +148,8 @@ public partial class CartService(AppDbContext db, TimeProvider clock) : ICartSer
                 .Where(s => s.ProductCode == item.ProductCode && s.Reserved >= item.Quantity && s.Quantity >= item.Quantity)
                 .ExecuteUpdateAsync(s => s
                     .SetProperty(x => x.Quantity, x => x.Quantity - item.Quantity)
-                    .SetProperty(x => x.Reserved, x => x.Reserved - item.Quantity), ct);
+                    .SetProperty(x => x.Reserved, x => x.Reserved - item.Quantity)
+                    .SetProperty(x => x.UpdatedAt, now), ct);
 
             // ไม่ควรเกิด เพราะทุกชิ้นในตะกร้าถูกจองไว้แล้ว ถ้าเกิดแปลว่าข้อมูลเพี้ยน -> rollback ทั้งหมด
             if (affected == 0)
@@ -183,7 +184,9 @@ public partial class CartService(AppDbContext db, TimeProvider clock) : ICartSer
     {
         var affected = await db.Stocks
             .Where(s => s.ProductCode == productCode && s.Quantity - s.Reserved >= quantity)
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.Reserved, x => x.Reserved + quantity), ct);
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.Reserved, x => x.Reserved + quantity)
+                .SetProperty(x => x.UpdatedAt, clock.GetUtcNow().UtcDateTime), ct);
 
         if (affected == 0)
         {
@@ -200,7 +203,9 @@ public partial class CartService(AppDbContext db, TimeProvider clock) : ICartSer
     {
         var affected = await db.Stocks
             .Where(s => s.ProductCode == productCode && s.Reserved >= quantity)
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.Reserved, x => x.Reserved - quantity), ct);
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.Reserved, x => x.Reserved - quantity)
+                .SetProperty(x => x.UpdatedAt, clock.GetUtcNow().UtcDateTime), ct);
 
         if (affected == 0)
             throw new InvalidOperationException($"ยอดจองของ {productCode} น้อยกว่าที่จะคืน");
@@ -221,7 +226,7 @@ public partial class CartService(AppDbContext db, TimeProvider clock) : ICartSer
         var rows = await db.CartItems
             .AsNoTracking()
             .Where(c => c.UserId == userId)
-            .OrderBy(c => c.AddedAt).ThenBy(c => c.Id)
+            .OrderBy(c => c.CreatedAt).ThenBy(c => c.Id)
             .Select(c => new
             {
                 c.ProductCode,
@@ -232,7 +237,7 @@ public partial class CartService(AppDbContext db, TimeProvider clock) : ICartSer
             })
             .ToListAsync(ct);
 
-        // SQLite คำนวณ decimal ใน SQL ไม่ได้ จึงรวมยอดเงินฝั่ง C#
+        // รวมยอดเงินจากข้อมูลที่ดึงมาแล้ว ไม่ต้อง query DB ซ้ำ
         var items = rows
             .Select(r => new CartItemDto(r.ProductCode, r.Name, r.UnitPrice, r.Quantity, r.UnitPrice * r.Quantity, r.Available))
             .ToList();

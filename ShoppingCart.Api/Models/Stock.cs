@@ -7,11 +7,13 @@ namespace ShoppingCart.Api.Models;
 /// - Available = จำนวนที่ยังหยิบใส่ตะกร้าได้ = Quantity - Reserved
 /// กติกา: 0 &lt;= Reserved &lt;= Quantity (บังคับด้วย CHECK constraint ใน DB)
 /// </summary>
-public class Stock
+public class Stock : IHasTimestamps
 {
     public string ProductCode { get; set; } = default!;
     public int Quantity { get; set; }
     public int Reserved { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; } // เปลี่ยนทุกครั้งที่มีการจอง / คืน / ตัด stock
 
     public int Available => Quantity - Reserved;
 
