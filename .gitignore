@@ -1,0 +1,14 @@
+# .NET
+bin/
+obj/
+.vs/
+
+# Node / Next.js (frontend มี .gitignore ของตัวเองด้วย)
+node_modules/
+
+# env (commit เฉพาะ .env.example)
+.env
+.env.*
+!.env.example
+
+.DS_Store
