@@ -2,18 +2,22 @@
 
 import type { Cart } from "@/lib/types";
 import { formatBaht } from "@/lib/format";
+import { useDelayedFlag } from "@/lib/useDelayedFlag";
 
 type Props = {
   cart: Cart | null;
-  busy: boolean;
+  busy: boolean; // กำลังล้างตะกร้าหรือชำระเงิน
+  checkingOut: boolean;
+  pendingItems: ReadonlySet<string>; // รหัสสินค้าที่กำลังแก้จำนวน / ลบ
   onSetQuantity: (code: string, quantity: number) => void;
   onRemove: (code: string) => void;
   onClear: () => void;
   onCheckout: () => void;
 };
 
-export function CartPanel({ cart, busy, onSetQuantity, onRemove, onClear, onCheckout }: Props) {
+export function CartPanel({ cart, busy, checkingOut, pendingItems, onSetQuantity, onRemove, onClear, onCheckout }: Props) {
   const items = cart?.items ?? [];
+  const showCheckingOut = useDelayedFlag(checkingOut);
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -23,7 +27,7 @@ export function CartPanel({ cart, busy, onSetQuantity, onRemove, onClear, onChec
           <button
             onClick={() => confirm("ล้างสินค้าทั้งหมดในตะกร้า?") && onClear()}
             disabled={busy}
-            className="text-sm text-rose-600 hover:underline disabled:opacity-50"
+            className={`text-sm text-rose-600 hover:underline ${busy ? "cursor-wait" : ""}`}
           >
             ล้างตะกร้า
           </button>
@@ -34,49 +38,56 @@ export function CartPanel({ cart, busy, onSetQuantity, onRemove, onClear, onChec
         <p className="py-10 text-center text-sm text-slate-500">ยังไม่มีสินค้าในตะกร้า</p>
       ) : (
         <ul className="mt-3 divide-y divide-slate-100">
-          {items.map((item) => (
-            <li key={item.productCode} className="py-3">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-sm font-medium text-slate-900">{item.productName}</p>
-                  <p className="text-xs text-slate-500">
-                    {item.productCode} · {formatBaht(item.unitPrice)} / ชิ้น
-                  </p>
-                </div>
-                <button
-                  onClick={() => onRemove(item.productCode)}
-                  disabled={busy}
-                  className="text-xs text-slate-400 hover:text-rose-600 disabled:opacity-50"
-                  aria-label={`ลบ ${item.productName}`}
-                >
-                  ลบ
-                </button>
-              </div>
-              <div className="mt-2 flex items-center justify-between">
-                <div className="flex items-center rounded-lg border border-slate-300">
+          {items.map((item) => {
+            // ระหว่างรอ backend แค่กันกดซ้ำ ไม่เปลี่ยนหน้าตาปุ่ม (กันกระพริบ)
+            const locked = busy || pendingItems.has(item.productCode);
+            const cursor = locked ? "cursor-wait" : "";
+            return (
+              <li key={item.productCode} className="py-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium text-slate-900">{item.productName}</p>
+                    <p className="text-xs text-slate-500">
+                      {item.productCode} · {formatBaht(item.unitPrice)} / ชิ้น
+                    </p>
+                  </div>
                   <button
-                    onClick={() => onSetQuantity(item.productCode, item.quantity - 1)}
-                    disabled={busy}
-                    className="h-8 w-8 text-lg text-slate-700 hover:bg-slate-100 disabled:opacity-40"
-                    aria-label="ลดจำนวน"
+                    onClick={() => onRemove(item.productCode)}
+                    disabled={locked}
+                    className={`text-xs text-slate-400 hover:text-rose-600 ${cursor}`}
+                    aria-label={`ลบ ${item.productName}`}
                   >
-                    −
-                  </button>
-                  <span className="w-10 text-center text-sm font-medium">{item.quantity}</span>
-                  <button
-                    onClick={() => onSetQuantity(item.productCode, item.quantity + 1)}
-                    disabled={busy || item.availableToAdd <= 0}
-                    title={item.availableToAdd <= 0 ? "สินค้าใน stock ไม่พอ" : undefined}
-                    className="h-8 w-8 text-lg text-slate-700 hover:bg-slate-100 disabled:opacity-40"
-                    aria-label="เพิ่มจำนวน"
-                  >
-                    +
+                    ลบ
                   </button>
                 </div>
-                <span className="text-sm font-semibold text-slate-900">{formatBaht(item.lineTotal)}</span>
-              </div>
-            </li>
-          ))}
+                <div className="mt-2 flex items-center justify-between">
+                  <div className="flex items-center rounded-lg border border-slate-300">
+                    <button
+                      onClick={() => onSetQuantity(item.productCode, item.quantity - 1)}
+                      disabled={locked}
+                      className={`h-8 w-8 text-lg text-slate-700 hover:bg-slate-100 ${cursor}`}
+                      aria-label="ลดจำนวน"
+                    >
+                      −
+                    </button>
+                    <span className="w-10 text-center text-sm font-medium">{item.quantity}</span>
+                    <button
+                      onClick={() => onSetQuantity(item.productCode, item.quantity + 1)}
+                      disabled={locked || item.availableToAdd <= 0}
+                      title={item.availableToAdd <= 0 ? "สินค้าใน stock ไม่พอ" : undefined}
+                      className={`h-8 w-8 text-lg text-slate-700 hover:bg-slate-100 ${
+                        item.availableToAdd <= 0 ? "cursor-not-allowed opacity-40" : cursor
+                      }`}
+                      aria-label="เพิ่มจำนวน"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-900">{formatBaht(item.lineTotal)}</span>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -92,9 +103,15 @@ export function CartPanel({ cart, busy, onSetQuantity, onRemove, onClear, onChec
         <button
           onClick={onCheckout}
           disabled={busy || items.length === 0}
-          className="mt-4 w-full rounded-lg bg-emerald-600 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+          className={`mt-4 w-full rounded-lg py-2.5 text-sm font-semibold text-white ${
+            items.length === 0
+              ? "cursor-not-allowed bg-slate-300"
+              : busy
+                ? "cursor-wait bg-emerald-600"
+                : "bg-emerald-600 hover:bg-emerald-700"
+          }`}
         >
-          ชำระเงิน (Check out)
+          {showCheckingOut ? "กำลังชำระเงิน..." : "ชำระเงิน (Check out)"}
         </button>
       </div>
     </section>

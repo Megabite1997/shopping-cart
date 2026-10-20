@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import type { Cart, Order, Product } from "@/lib/types";
 import { DEMO_USERS, useCurrentUser } from "@/lib/useCurrentUser";
@@ -16,7 +16,11 @@ export function Shop() {
   const [cart, setCart] = useState<Cart | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [lastOrderId, setLastOrderId] = useState<number>();
-  const [busy, setBusy] = useState(false);
+  // key ของปุ่มที่กำลังรอ backend เช่น "add:P001", "item:P001", "clear", "checkout"
+  // ล็อกเฉพาะปุ่มที่ถูกกด ปุ่มอื่นบนหน้าไม่ต้องเปลี่ยนสถานะ (ไม่กระพริบ)
+  const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
+  // ส่ง request ที่แก้ตะกร้าทีละตัวตามลำดับที่กด กัน response มาสลับลำดับแล้วตะกร้าแสดงค่าเก่า
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
   const [notice, setNotice] = useState<Notice | null>(null);
 
   const showError = useCallback((err: unknown) => {
@@ -51,39 +55,58 @@ export function Shop() {
     return () => clearTimeout(t);
   }, [notice]);
 
-  /** เรียก API ที่แก้ตะกร้า แล้วอัปเดตตะกร้า + stock ให้ตรงกับ backend */
-  async function mutate(action: (uid: string) => Promise<Cart>, successText?: string): Promise<boolean> {
-    if (!userId) return false;
-    setBusy(true);
-    try {
-      setCart(await action(userId));
-      setProducts(await api.getProducts());
-      if (successText) setNotice({ kind: "success", text: successText });
-      return true;
-    } catch (err) {
-      showError(err);
-      await refresh(userId);
-      return false;
-    } finally {
-      setBusy(false);
-    }
+  /** ต่อคิวงานที่แก้ตะกร้า และทำเครื่องหมายว่าปุ่ม key นี้กำลังรอ */
+  function enqueue<T>(key: string, task: () => Promise<T>): Promise<T> {
+    setPending((prev) => new Set(prev).add(key));
+    const result = queue.current.then(task);
+    queue.current = result.catch(() => undefined);
+    return result.finally(() =>
+      setPending((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      }),
+    );
   }
 
-  async function checkout() {
-    if (!userId) return;
-    setBusy(true);
-    try {
-      const order = await api.checkout(userId);
-      setLastOrderId(order.orderId);
-      setNotice({ kind: "success", text: `ชำระเงินสำเร็จ คำสั่งซื้อ #${order.orderId}` });
-      await refresh(userId);
-    } catch (err) {
-      showError(err);
-      await refresh(userId);
-    } finally {
-      setBusy(false);
-    }
+  /** เรียก API ที่แก้ตะกร้า แล้วอัปเดตตะกร้า + stock ให้ตรงกับ backend */
+  function mutate(key: string, action: (uid: string) => Promise<Cart>, successText?: string): Promise<boolean> {
+    if (!userId) return Promise.resolve(false);
+    const uid = userId;
+    return enqueue(key, async () => {
+      try {
+        setCart(await action(uid));
+        setProducts(await api.getProducts());
+        if (successText) setNotice({ kind: "success", text: successText });
+        return true;
+      } catch (err) {
+        showError(err);
+        await refresh(uid);
+        return false;
+      }
+    });
   }
+
+  function checkout() {
+    if (!userId) return;
+    const uid = userId;
+    void enqueue("checkout", async () => {
+      try {
+        const order = await api.checkout(uid);
+        setLastOrderId(order.orderId);
+        setNotice({ kind: "success", text: `ชำระเงินสำเร็จ คำสั่งซื้อ #${order.orderId}` });
+      } catch (err) {
+        showError(err);
+      }
+      await refresh(uid);
+    });
+  }
+
+  const pendingItems = useMemo(
+    () => new Set([...pending].filter((k) => k.startsWith("item:")).map((k) => k.slice(5))),
+    [pending],
+  );
+  const cartBusy = pending.has("clear") || pending.has("checkout");
 
   const inCart = useMemo(
     () => new Map(cart?.items.map((i) => [i.productCode, i.quantity])),
@@ -143,9 +166,9 @@ export function Shop() {
                   key={p.code}
                   product={p}
                   inCart={inCart.get(p.code) ?? 0}
-                  busy={busy}
+                  pending={pending.has(`add:${p.code}`)}
                   onAdd={(code, qty) =>
-                    mutate((uid) => api.addToCart(uid, code, qty), `เพิ่ม ${p.name} × ${qty} ลงตะกร้าแล้ว`)
+                    mutate(`add:${code}`, (uid) => api.addToCart(uid, code, qty), `เพิ่ม ${p.name} × ${qty} ลงตะกร้าแล้ว`)
                   }
                 />
               ))}
@@ -156,10 +179,12 @@ export function Shop() {
         <aside className="space-y-6 lg:sticky lg:top-20 lg:self-start">
           <CartPanel
             cart={cart}
-            busy={busy}
-            onSetQuantity={(code, qty) => mutate((uid) => api.setQuantity(uid, code, qty))}
-            onRemove={(code) => mutate((uid) => api.removeItem(uid, code))}
-            onClear={() => mutate((uid) => api.clearCart(uid), "ล้างตะกร้าแล้ว")}
+            busy={cartBusy}
+            checkingOut={pending.has("checkout")}
+            pendingItems={pendingItems}
+            onSetQuantity={(code, qty) => mutate(`item:${code}`, (uid) => api.setQuantity(uid, code, qty))}
+            onRemove={(code) => mutate(`item:${code}`, (uid) => api.removeItem(uid, code))}
+            onClear={() => mutate("clear", (uid) => api.clearCart(uid), "ล้างตะกร้าแล้ว")}
             onCheckout={checkout}
           />
           <OrderHistory orders={orders} highlightId={lastOrderId} />

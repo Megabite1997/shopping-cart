@@ -3,16 +3,18 @@
 import { useState } from "react";
 import type { Product } from "@/lib/types";
 import { formatBaht } from "@/lib/format";
+import { useDelayedFlag } from "@/lib/useDelayedFlag";
 
 type Props = {
   product: Product;
   inCart: number;
-  busy: boolean;
+  pending: boolean; // ปุ่มของการ์ดนี้กำลังรอ backend
   onAdd: (code: string, quantity: number) => Promise<boolean>;
 };
 
-export function ProductCard({ product, inCart, busy, onAdd }: Props) {
+export function ProductCard({ product, inCart, pending, onAdd }: Props) {
   const [qty, setQty] = useState(1);
+  const showPending = useDelayedFlag(pending);
   const soldOut = product.availableQuantity <= 0;
   // ไม่ clamp ด้วย available ตรงนี้ เพื่อให้ทดสอบได้ว่า backend ปฏิเสธเมื่อของไม่พอ
   const validQty = Number.isInteger(qty) && qty >= 1;
@@ -65,10 +67,17 @@ export function ProductCard({ product, inCart, busy, onAdd }: Props) {
         />
         <button
           onClick={handleAdd}
-          disabled={busy || soldOut || !validQty}
-          className="flex-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+          disabled={pending || soldOut || !validQty}
+          aria-busy={pending}
+          className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium text-white transition-colors ${
+            soldOut || !validQty
+              ? "cursor-not-allowed bg-slate-300"
+              : showPending
+                ? "cursor-wait bg-indigo-500"
+                : "bg-indigo-600 hover:bg-indigo-700"
+          }`}
         >
-          {soldOut ? "สินค้าหมด" : "เพิ่มลงตะกร้า"}
+          {soldOut ? "สินค้าหมด" : showPending ? "กำลังเพิ่ม..." : "เพิ่มลงตะกร้า"}
         </button>
       </div>
     </article>
