@@ -146,12 +146,20 @@ export function Shop() {
   );
 
   return (
-    <div className="min-h-full bg-slate-100">
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/90 backdrop-blur">
+    <div className="min-h-full bg-surface">
+      <header className="sticky top-0 z-10 bg-brand text-white shadow-md shadow-brand/20">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <h1 className="text-xl font-bold text-slate-900">Mini Shop</h1>
-          <div className="flex items-center gap-4 text-sm">
-            <label className="flex items-center gap-2 text-slate-600">
+          <div className="flex items-center gap-2.5">
+            <span
+              aria-hidden
+              className="grid h-9 w-9 place-items-center rounded-xl bg-white text-lg font-bold text-brand"
+            >
+              M
+            </span>
+            <h1 className="text-xl font-bold tracking-tight">Mini Shop</h1>
+          </div>
+          <div className="flex items-center gap-3 text-sm">
+            <label className="flex items-center gap-2 text-white/90">
               ผู้ใช้
               <select
                 value={userId ?? ""}
@@ -159,7 +167,7 @@ export function Shop() {
                   setLastOrderId(undefined);
                   setUserId(e.target.value);
                 }}
-                className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-slate-900"
+                className="rounded-lg border border-white/40 bg-white/15 px-2 py-1 text-white focus:outline-none focus:ring-2 focus:ring-white/70 [&>option]:text-brand-ink"
               >
                 {DEMO_USERS.map((u) => (
                   <option key={u} value={u}>
@@ -168,18 +176,27 @@ export function Shop() {
                 ))}
               </select>
             </label>
-            <span className="rounded-full bg-indigo-600 px-3 py-1 font-medium text-white">
+            <span className="rounded-full bg-white px-3 py-1 font-semibold text-brand">
               ตะกร้า {cart?.totalQuantity ?? 0}
             </span>
           </div>
         </div>
       </header>
 
+      <div className="bg-gradient-to-r from-brand-ink to-[#4a2a14] text-white">
+        <div className="mx-auto max-w-6xl px-4 py-6">
+          <p className="text-sm text-brand-light">ช้อปง่าย จ่ายสะดวก</p>
+          <p className="mt-1 text-2xl font-bold">สินค้าพร้อมส่ง เช็ค stock ได้แบบเรียลไทม์</p>
+          <p className="mt-1 text-sm text-white/70">หยิบใส่ตะกร้าแล้วระบบจองสินค้าไว้ให้ ชำระเงินภายในเวลาที่แสดงในตะกร้า</p>
+        </div>
+        <div className="h-1 bg-brand" />
+      </div>
+
       {notice && (
         <div
           role="status"
-          className={`fixed inset-x-4 bottom-6 z-20 mx-auto max-w-md rounded-lg px-4 py-3 text-sm shadow-lg ${
-            notice.kind === "error" ? "bg-rose-600 text-white" : "bg-emerald-600 text-white"
+          className={`fixed inset-x-4 bottom-6 z-20 mx-auto max-w-md rounded-xl border-l-4 px-4 py-3 text-sm text-white shadow-lg ${
+            notice.kind === "error" ? "border-rose-300 bg-rose-600" : "border-brand bg-brand-ink"
           }`}
         >
           {notice.text}
@@ -188,9 +205,12 @@ export function Shop() {
 
       <main className="mx-auto grid max-w-6xl gap-6 px-4 py-6 lg:grid-cols-[1fr_360px]">
         <section>
-          <h2 className="mb-3 text-lg font-semibold text-slate-900">สินค้า</h2>
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold">
+            <span className="h-5 w-1 rounded-full bg-brand" />
+            สินค้า
+          </h2>
           {products === null ? (
-            <p className="text-sm text-slate-500">กำลังโหลด...</p>
+            <p className="text-sm text-stone-500">กำลังโหลด...</p>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {products.map((p) => (

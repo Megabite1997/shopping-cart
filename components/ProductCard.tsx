@@ -24,9 +24,9 @@ export function ProductCard({ product, inCart, pending, onAdd }: Props) {
   }
 
   return (
-    <article className="flex flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <article className="flex flex-col rounded-2xl border border-stone-200 border-t-4 border-t-brand bg-white p-4 shadow-sm transition-shadow hover:shadow-md">
       <div className="flex items-start justify-between gap-2">
-        <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-600">{product.code}</span>
+        <span className="rounded-md bg-brand-soft px-2 py-0.5 font-mono text-xs font-medium text-brand">{product.code}</span>
         {soldOut ? (
           <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700">สินค้าหมด</span>
         ) : product.availableQuantity <= 3 ? (
@@ -34,26 +34,30 @@ export function ProductCard({ product, inCart, pending, onAdd }: Props) {
         ) : null}
       </div>
 
-      <h3 className="mt-3 text-base font-semibold text-slate-900">{product.name}</h3>
-      <p className="mt-1 text-lg font-bold text-indigo-600">{formatBaht(product.unitPrice)}</p>
+      <h3 className="mt-3 text-base font-semibold text-stone-900">{product.name}</h3>
+      <p className="mt-1 text-lg font-bold text-brand">{formatBaht(product.unitPrice)}</p>
 
-      <dl className="mt-3 grid grid-cols-3 gap-1 rounded-lg bg-slate-50 p-2 text-center text-xs">
+      <dl className="mt-3 grid grid-cols-3 gap-1 rounded-xl bg-surface p-2 text-center text-xs">
         <div>
-          <dt className="text-slate-500">คงเหลือ</dt>
-          <dd className="text-sm font-semibold text-slate-800">{product.stockQuantity}</dd>
+          <dt className="text-stone-500">คงเหลือ</dt>
+          <dd className="text-sm font-semibold text-stone-800">{product.stockQuantity}</dd>
         </div>
         <div>
-          <dt className="text-slate-500">ในตะกร้า</dt>
-          <dd className="text-sm font-semibold text-slate-800">{product.reservedQuantity}</dd>
+          <dt className="text-stone-500">ในตะกร้า</dt>
+          <dd className="text-sm font-semibold text-stone-800">{product.reservedQuantity}</dd>
         </div>
         <div>
-          <dt className="text-slate-500">พร้อมขาย</dt>
+          <dt className="text-stone-500">พร้อมขาย</dt>
           <dd className={`text-sm font-semibold ${soldOut ? "text-rose-600" : "text-emerald-600"}`}>
             {product.availableQuantity}
           </dd>
         </div>
       </dl>
-      {inCart > 0 && <p className="mt-2 text-xs text-indigo-600">อยู่ในตะกร้าของคุณ {inCart} ชิ้น</p>}
+      {inCart > 0 && (
+        <p className="mt-2 inline-flex self-start rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-medium text-brand">
+          อยู่ในตะกร้าของคุณ {inCart} ชิ้น
+        </p>
+      )}
 
       <div className="mt-auto flex gap-2 pt-4">
         <input
@@ -63,18 +67,18 @@ export function ProductCard({ product, inCart, pending, onAdd }: Props) {
           onChange={(e) => setQty(e.target.valueAsNumber)}
           disabled={soldOut}
           aria-label={`จำนวน ${product.name}`}
-          className="w-16 rounded-lg border border-slate-300 px-2 py-2 text-center text-sm disabled:bg-slate-100"
+          className="w-16 rounded-xl border border-stone-300 px-2 py-2 text-center text-sm focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30 disabled:bg-stone-100"
         />
         <button
           onClick={handleAdd}
           disabled={pending || soldOut || !validQty}
           aria-busy={pending}
-          className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium text-white transition-colors ${
+          className={`flex-1 rounded-xl px-3 py-2 text-sm font-semibold text-white transition-colors ${
             soldOut || !validQty
-              ? "cursor-not-allowed bg-slate-300"
+              ? "cursor-not-allowed bg-stone-300"
               : showPending
-                ? "cursor-wait bg-indigo-500"
-                : "bg-indigo-600 hover:bg-indigo-700"
+                ? "cursor-wait bg-brand-light"
+                : "bg-brand hover:bg-brand-hover"
           }`}
         >
           {soldOut ? "สินค้าหมด" : showPending ? "กำลังเพิ่ม..." : "เพิ่มลงตะกร้า"}

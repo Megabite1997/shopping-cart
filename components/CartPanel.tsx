@@ -16,15 +16,27 @@ type Props = {
   onCheckout: () => void;
 };
 
-export function CartPanel({ cart, busy, checkingOut, pendingItems, onSetQuantity, onRemove, onClear, onCheckout }: Props) {
+export function CartPanel({
+  cart,
+  busy,
+  checkingOut,
+  pendingItems,
+  onSetQuantity,
+  onRemove,
+  onClear,
+  onCheckout,
+}: Props) {
   const items = cart?.items ?? [];
   const showCheckingOut = useDelayedFlag(checkingOut);
   const now = useNow();
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-900">ตะกร้าสินค้า</h2>
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-stone-900">
+          <span className="h-5 w-1 rounded-full bg-brand" />
+          ตะกร้าสินค้า
+        </h2>
         {items.length > 0 && (
           <button
             onClick={() => confirm("ล้างสินค้าทั้งหมดในตะกร้า?") && onClear()}
@@ -37,9 +49,9 @@ export function CartPanel({ cart, busy, checkingOut, pendingItems, onSetQuantity
       </div>
 
       {items.length === 0 ? (
-        <p className="py-10 text-center text-sm text-slate-500">ยังไม่มีสินค้าในตะกร้า</p>
+        <p className="py-10 text-center text-sm text-stone-500">ยังไม่มีสินค้าในตะกร้า</p>
       ) : (
-        <ul className="mt-3 divide-y divide-slate-100">
+        <ul className="mt-3 divide-y divide-stone-100">
           {items.map((item) => {
             // ระหว่างรอ backend แค่กันกดซ้ำ ไม่เปลี่ยนหน้าตาปุ่ม (กันกระพริบ)
             const locked = busy || pendingItems.has(item.productCode);
@@ -48,8 +60,8 @@ export function CartPanel({ cart, busy, checkingOut, pendingItems, onSetQuantity
               <li key={item.productCode} className="py-3">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="text-sm font-medium text-slate-900">{item.productName}</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-sm font-medium text-stone-900">{item.productName}</p>
+                    <p className="text-xs text-stone-500">
                       {item.productCode} · {formatBaht(item.unitPrice)} / ชิ้น
                     </p>
                     {now !== null && <ReservationTimer msLeft={parseUtc(item.reservedUntil).getTime() - now} />}
@@ -57,18 +69,18 @@ export function CartPanel({ cart, busy, checkingOut, pendingItems, onSetQuantity
                   <button
                     onClick={() => onRemove(item.productCode)}
                     disabled={locked}
-                    className={`text-xs text-slate-400 hover:text-rose-600 ${cursor}`}
+                    className={`text-xs text-stone-400 hover:text-rose-600 ${cursor}`}
                     aria-label={`ลบ ${item.productName}`}
                   >
                     ลบ
                   </button>
                 </div>
                 <div className="mt-2 flex items-center justify-between">
-                  <div className="flex items-center rounded-lg border border-slate-300">
+                  <div className="flex items-center rounded-lg border border-stone-300">
                     <button
                       onClick={() => onSetQuantity(item.productCode, item.quantity - 1)}
                       disabled={locked}
-                      className={`h-8 w-8 text-lg text-slate-700 hover:bg-slate-100 ${cursor}`}
+                      className={`h-8 w-8 text-lg text-stone-700 hover:bg-stone-100 ${cursor}`}
                       aria-label="ลดจำนวน"
                     >
                       −
@@ -78,7 +90,7 @@ export function CartPanel({ cart, busy, checkingOut, pendingItems, onSetQuantity
                       onClick={() => onSetQuantity(item.productCode, item.quantity + 1)}
                       disabled={locked || item.availableToAdd <= 0}
                       title={item.availableToAdd <= 0 ? "สินค้าใน stock ไม่พอ" : undefined}
-                      className={`h-8 w-8 text-lg text-slate-700 hover:bg-slate-100 ${
+                      className={`h-8 w-8 text-lg text-stone-700 hover:bg-stone-100 ${
                         item.availableToAdd <= 0 ? "cursor-not-allowed opacity-40" : cursor
                       }`}
                       aria-label="เพิ่มจำนวน"
@@ -86,7 +98,7 @@ export function CartPanel({ cart, busy, checkingOut, pendingItems, onSetQuantity
                       +
                     </button>
                   </div>
-                  <span className="text-sm font-semibold text-slate-900">{formatBaht(item.lineTotal)}</span>
+                  <span className="text-sm font-semibold text-stone-900">{formatBaht(item.lineTotal)}</span>
                 </div>
               </li>
             );
@@ -94,24 +106,24 @@ export function CartPanel({ cart, busy, checkingOut, pendingItems, onSetQuantity
         </ul>
       )}
 
-      <div className="mt-3 border-t border-slate-200 pt-3">
-        <div className="flex justify-between text-sm text-slate-600">
+      <div className="mt-3 border-t border-stone-200 pt-3">
+        <div className="flex justify-between text-sm text-stone-600">
           <span>จำนวนสินค้า</span>
           <span>{cart?.totalQuantity ?? 0} ชิ้น</span>
         </div>
-        <div className="mt-1 flex justify-between text-base font-bold text-slate-900">
+        <div className="mt-1 flex justify-between text-base font-bold text-stone-900">
           <span>ยอดรวม</span>
           <span>{formatBaht(cart?.totalAmount ?? 0)}</span>
         </div>
         <button
           onClick={onCheckout}
           disabled={busy || items.length === 0}
-          className={`mt-4 w-full rounded-lg py-2.5 text-sm font-semibold text-white ${
+          className={`mt-4 w-full rounded-xl py-3 shadow-sm shadow-brand/30 text-sm font-semibold text-white ${
             items.length === 0
-              ? "cursor-not-allowed bg-slate-300"
+              ? "cursor-not-allowed bg-stone-300"
               : busy
-                ? "cursor-wait bg-emerald-600"
-                : "bg-emerald-600 hover:bg-emerald-700"
+                ? "cursor-wait bg-brand"
+                : "bg-brand hover:bg-brand-hover"
           }`}
         >
           {showCheckingOut ? "กำลังชำระเงิน..." : "ชำระเงิน (Check out)"}
@@ -126,7 +138,7 @@ function ReservationTimer({ msLeft }: { msLeft: number }) {
   if (msLeft <= 0) return <p className="mt-0.5 text-xs font-medium text-rose-600">หมดเวลาจอง กำลังคืนสินค้า...</p>;
   const urgent = msLeft < 60_000;
   return (
-    <p className={`mt-0.5 text-xs tabular-nums ${urgent ? "font-medium text-rose-600" : "text-amber-700"}`}>
+    <p className={`mt-0.5 text-xs tabular-nums ${urgent ? "font-medium text-rose-600" : "text-brand"}`}>
       จองไว้อีก {formatCountdown(msLeft)} นาที
     </p>
   );
